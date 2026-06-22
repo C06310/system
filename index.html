@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>食堂菜品打分</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #f5f5f5; color: #333; padding: 16px;
+            max-width: 500px; margin: 0 auto;
+        }
+        h1 { text-align: center; margin: 10px 0 20px; font-size: 1.6em; }
+        .card {
+            background: white; border-radius: 12px; padding: 20px;
+            margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+        button, .btn {
+            background: #07c160; color: white; border: none;
+            padding: 12px 20px; border-radius: 8px; font-size: 16px;
+            width: 100%; margin-top: 10px; cursor: pointer;
+        }
+        button.secondary { background: #1989fa; }
+        button.danger { background: #ee0a24; }
+        input, select {
+            width: 100%; padding: 12px; margin-top: 10px;
+            border: 1px solid #ddd; border-radius: 8px; font-size: 16px;
+        }
+        .dish-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 12px 0; border-bottom: 1px solid #eee;
+        }
+        .dish-item:last-child { border-bottom: none; }
+        .avg { color: #07c160; font-weight: bold; }
+        .detail-line { padding: 6px 0; }
+    </style>
+</head>
+<body>
+
+    <h1>🍽️ 食堂菜品评分</h1>
+
+    <!-- 主菜单 -->
+    <div id="menu" class="card">
+        <button onclick="showAll()">📋 查看所有菜品及平均分</button>
+        <button onclick="showRate()">⭐ 为菜品打分</button>
+        <button onclick="showAdd()">➕ 添加新菜品</button>
+        <button onclick="showDetail()">🔍 查看某菜品详细评分</button>
+    </div>
+
+    <!-- 所有菜品列表 -->
+    <div id="allDishes" class="card" style="display:none;">
+        <h3>所有菜品</h3>
+        <div id="dishList"></div>
+        <button class="secondary" onclick="showMenu()">← 返回菜单</button>
+    </div>
+
+    <!-- 打分界面 -->
+    <div id="rate" class="card" style="display:none;">
+        <h3>为菜品打分</h3>
+        <select id="rateDishName"></select>
+        <input type="number" id="rateScore" placeholder="请输入评分(1-5)" min="1" max="5">
+        <button onclick="submitRate()">提交评分</button>
+        <button class="secondary" onclick="showMenu()">← 返回菜单</button>
+    </div>
+
+    <!-- 添加菜品 -->
+    <div id="add" class="card" style="display:none;">
+        <h3>添加新菜品</h3>
+        <input type="text" id="newDishName" placeholder="菜品名称">
+        <button onclick="submitAdd()">添加</button>
+        <button class="secondary" onclick="showMenu()">← 返回菜单</button>
+    </div>
+
+    <!-- 菜品详情 -->
+    <div id="detail" class="card" style="display:none;">
+        <h3>查看详细评分</h3>
+        <select id="detailDishName"></select>
+        <div id="detailContent" style="margin-top:10px;"></div>
+        <button class="secondary" onclick="showMenu()">← 返回菜单</button>
+    </div>
+
+    <script>
+        // 数据存储：使用 localStorage 模拟 JSON 文件
+        const STORAGE_KEY = 'dish_ratings';
+
+        function loadDishes() {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            return raw ? JSON.parse(raw) : {};
+        }
+
+        function saveDishes(dishes) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(dishes));
+        }
+
+        // 更新下拉菜单
+        function updateSelects() {
+            const dishes = loadDishes();
+            const names = Object.keys(dishes);
+            const rateSelect = document.getElementById('rateDishName');
+            const detailSelect = document.getElementById('detailDishName');
+            rateSelect.innerHTML = '';
+            detailSelect.innerHTML = '';
+            if (names.length === 0) {
+                rateSelect.innerHTML = '<option value="">-- 暂无菜品 --</option>';
+                detailSelect.innerHTML = '<option value="">-- 暂无菜品 --</option>';
+                return;
+            }
+            names.forEach(name => {
+                rateSelect.innerHTML += `<option value="${name}">${name}</option>`;
+                detailSelect.innerHTML += `<option value="${name}">${name}</option>`;
+            });
+        }
+
+        // 界面切换
+        function hideAllCards() {
+            ['menu','allDishes','rate','add','detail'].forEach(id => {
+                document.getElementById(id).style.display = 'none';
+            });
+        }
+
+        function showMenu() {
+            hideAllCards();
+            document.getElementById('menu').style.display = 'block';
+            updateSelects(); // 刷新下拉数据
+        }
+
+        function showAll() {
+            hideAllCards();
+            const dishes = loadDishes();
+            const listDiv = document.getElementById('dishList');
+            if (Object.keys(dishes).length === 0) {
+                listDiv.innerHTML = '<p>📭 暂无菜品</p >';
+            } else {
+                let html = '';
+                for (const [name, scores] of Object.entries(dishes)) {
+                    if (scores.length > 0) {
+                        const avg = (scores.reduce((a,b)=>a+b,0)/scores.length).toFixed(1);
+                        html += `<div class="dish-item"><span>🍽️ ${name}</span><span class="avg">${avg} 分 (${scores.length}次)</span></div>`;
+                    } else {
+                        html += `<div class="dish-item"><span>🍽️ ${name}</span><span>暂无评分</span></div>`;
+                    }
+                }
+                listDiv.innerHTML = html;
+            }
+            document.getElementById('allDishes').style.display = 'block';
+        }
+
+        function showRate() {
+            hideAllCards();
+            updateSelects();
+            document.getElementById('rateScore').value = '';
+            document.getElementById('rate').style.display = 'block';
+        }
+
+        function submitRate() {
+            const name = document.getElementById('rateDishName').value;
+            const scoreStr = document.getElementById('rateScore').value;
+            if (!name || name === '') {
+                alert('请选择菜品'); return;
+            }
+            const score = parseInt(scoreStr);
+            if (isNaN(score) || score < 1 || score > 5) {
+                alert('请输入1-5之间的整数');
+                return;
+            }
+            const dishes = loadDishes();
+            dishes[name].push(score);
+            saveDishes(dishes);
+            alert(`✅ 为「${name}」添加评分：${score} 分`);
+            showMenu();
+        }
+
+        function showAdd() {
+            hideAllCards();
+            document.getElementById('newDishName').value = '';
+            document.getElementById('add').style.display = 'block';
+        }
+
+        function submitAdd() {
+            const name = document.getElementById('newDishName').value.trim();
+            if (!name) {
+                alert('菜品名不能为空'); return;
+            }
+            const dishes = loadDishes();
+            if (dishes[name]) {
+                alert('⚠️ 该菜品已存在');
+                return;
+            }
+            dishes[name] = [];
+            saveDishes(dishes);
+            alert(`✅ 成功添加菜品：${name}`);
+            showMenu();
+        }
+
+        function showDetail() {
+            hideAllCards();
+            updateSelects();
+            document.getElementById('detailContent').innerHTML = '';
+            document.getElementById('detail').style.display = 'block';
+            // 监听下拉变化
+            document.getElementById('detailDishName').onchange = function() {
+                const name = this.value;
+                if (!name) return;
+                const dishes = loadDishes();
+                const scores = dishes[name];
+                let html = `<h4>「${name}」评分记录</h4>`;
+                if (!scores || scores.length === 0) {
+                    html += '<p>暂无评分</p >';
+                } else {
+                    scores.forEach((s, i) => {
+                        html += `<div class="detail-line">第${i+1}次：${s} 星</div>`;
+                    });
+                    const avg = (scores.reduce((a,b)=>a+b,0)/scores.length).toFixed(2);
+                    html += `<p style="margin-top:8px;"><strong>平均分：${avg}</strong></p >`;
+                }
+                document.getElementById('detailContent').innerHTML = html;
+            };
+            // 默认触发一次
+            const sel = document.getElementById('detailDishName');
+            if (sel.value) sel.onchange();
+        }
+
+        // 初始化显示主菜单
+        showMenu();
+    </script>
+</body>
+</html>
